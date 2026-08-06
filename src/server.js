@@ -9,6 +9,8 @@ import {
   authenticateDeveloper,
   isBlockedUser,
   exportSnapshot,
+  exportEvents,
+  csvCell,
   initStore,
 } from './store.js';
 
@@ -105,6 +107,28 @@ app.patch('/v1/admin/apps/:app_id', async (req, res) => {
   if (!appRecord) return res.status(404).json({ error: 'app not found' });
   await updateApp(req.params.app_id, req.body ?? {});
   res.json({ ok: true });
+});
+
+// Admin event log export (CSV)
+app.get('/v1/admin/events', async (req, res) => {
+  const adminKey = process.env.ADMIN_KEY?.trim();
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd && !adminKey) {
+    return res.status(503).json({ error: 'admin endpoint not configured' });
+  }
+  const expected = adminKey || 'dev-admin-key';
+  if (req.headers.authorization !== `Bearer ${expected}`) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  const rows = await exportEvents();
+  const header = 'app_id,event,user_id,session_id,metadata,ts_iso';
+  const lines = [header];
+  for (const r of rows) {
+    const meta = r.metadata ? JSON.stringify(r.metadata).replace(/,/g, ';') : '';
+    const when = new Date(r.ts).toISOString();
+    lines.push([r.app_id, r.event, r.user_id, r.session_id, meta, when].map(csvCell).join(','));
+  }
+  res.type('text/csv').send(lines.join('\n'));
 });
 
 // Admin snapshot export

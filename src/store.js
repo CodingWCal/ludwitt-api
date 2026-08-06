@@ -146,7 +146,7 @@ export async function isBlockedUser(user_id, student_handle) {
   return normalizedUser === normalizedHandle;
 }
 
-function csvCell(value) {
+export function csvCell(value) {
   const s = String(value ?? '');
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
@@ -172,6 +172,20 @@ export async function getMetrics(app_id) {
     if (QUALIFYING_EVENTS.has(row.event)) qualified.add(row.user_id);
   }
   return { unique_users: users.size, qualified_users: qualified.size };
+}
+
+export async function exportEvents() {
+  const res = await db.execute({
+    sql: `SELECT app_id, event, user_id, session_id, metadata, ts FROM events ORDER BY ts ASC`,
+  });
+  return res.rows.map((r) => ({
+    app_id: r.app_id,
+    event: r.event,
+    user_id: r.user_id,
+    session_id: r.session_id,
+    metadata: r.metadata ? JSON.parse(r.metadata) : null,
+    ts: Number(r.ts),
+  }));
 }
 
 export async function exportSnapshot() {
