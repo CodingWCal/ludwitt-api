@@ -124,6 +124,17 @@ export async function getApp(app_id) {
   };
 }
 
+export async function updateApp(app_id, fields) {
+  const allowed = ['icon_url'];
+  const sets = allowed.filter((k) => k in fields);
+  if (sets.length === 0) return false;
+  await db.execute({
+    sql: `UPDATE apps SET ${sets.map((k) => `${k} = ?`).join(', ')} WHERE app_id = ?`,
+    args: [...sets.map((k) => fields[k]), app_id],
+  });
+  return true;
+}
+
 export async function isBlockedUser(user_id, student_handle) {
   const normalizedUser = String(user_id ?? '').trim().toLowerCase();
   if (!normalizedUser) return false;

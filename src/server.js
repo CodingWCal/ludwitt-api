@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import {
   registerApp,
   getApp,
+  updateApp,
   recordEvent,
   getMetrics,
   authenticateDeveloper,
@@ -87,6 +88,23 @@ app.get('/v1/apps/:app_id/metrics', requireDevKey, async (req, res) => {
   }
   const metrics = await getMetrics(app_id);
   res.json(metrics);
+});
+
+// Admin update app metadata (icon_url etc.)
+app.patch('/v1/admin/apps/:app_id', async (req, res) => {
+  const adminKey = process.env.ADMIN_KEY?.trim();
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd && !adminKey) {
+    return res.status(503).json({ error: 'admin endpoint not configured' });
+  }
+  const expected = adminKey || 'dev-admin-key';
+  if (req.headers.authorization !== `Bearer ${expected}`) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  const appRecord = await getApp(req.params.app_id);
+  if (!appRecord) return res.status(404).json({ error: 'app not found' });
+  await updateApp(req.params.app_id, req.body ?? {});
+  res.json({ ok: true });
 });
 
 // Admin snapshot export
